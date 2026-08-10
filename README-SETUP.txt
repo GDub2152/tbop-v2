@@ -25,3 +25,24 @@ IMPORTANT SECURITY
 
 GITHUB PAGES
 Upload the contents of this folder to a fresh repository or a test branch first. index.html must remain at the repository root.
+
+
+TBOP SIMPLE OFFICER DESK
+========================
+This edition intentionally keeps only three admin tools:
+1. Documents - upload PDF, choose category, publish/delete.
+2. News - publish/edit/delete club announcements.
+3. Calendar - add/edit/delete events.
+
+The existing Supabase authentication and is_site_admin() check are unchanged.
+Do not rerun the SQL setup if your current login and database are already working.
+
+DOCUMENT UPLOAD
+---------------
+Open admin.html, sign in, choose Documents, then:
+- Tap or drag in a PDF.
+- The title is filled automatically from the filename (you can change it).
+- Choose the category.
+- Add an optional description.
+- Press Upload & Publish.
+The public Documents page updates from Supabase automatically.
