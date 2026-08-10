@@ -35,3 +35,9 @@ Add a date and optional time. v3 writes:
   starts_at  = timestamp with time zone (or NULL if no time)
 
 No member portal is included. Public visitors never need an account.
+
+CURRENT UPDATE
+- Restored desktop drag-and-drop PDF upload.
+- PDF browse/tap upload remains supported on phones and tablets.
+- Storage bucket standardized to: documents
+- Includes the current working supabase-config.js.
