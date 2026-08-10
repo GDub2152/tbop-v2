@@ -243,4 +243,24 @@ async function admin(){
 }
 
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='solar-refresh')solar()});
+
+function startApp(){
+  nav();
+  solar().catch?.(()=>{});
+  publicNews().catch(console.error);
+  publicEvents().catch(console.error);
+  publicDocs().catch(console.error);
+  setup();
+  admin().catch(err=>{
+    console.error('TBOP admin startup failed',err);
+    const lm=document.querySelector('#login-message');
+    if(lm){lm.className='admin-message error';lm.textContent='Admin page could not start: '+(err?.message||String(err));}
+  });
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',startApp,{once:true});
+}else{
+  startApp();
+}
 })();
