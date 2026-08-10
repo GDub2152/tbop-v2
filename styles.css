@@ -47,3 +47,7 @@
 .native-file-overlay{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:5}
 .file-drop>*:not(.native-file-overlay){pointer-events:none}
 .file-drop.dragging{border-color:var(--orange)!important;background:#15140f!important}
+
+.upload-status{min-height:22px;margin-top:2px;font-size:.82rem;color:var(--muted)}
+.upload-status.ok{color:#9cebb4}.upload-status.error{color:#ffaaaa}.upload-status.warn{color:#ffd575}
+#doc-submit[disabled]{opacity:.6;cursor:wait}

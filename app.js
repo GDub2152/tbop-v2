@@ -95,104 +95,152 @@ async function admin(){
   if(!$('#login-form'))return;
   const c=client();
   if(!c){$('#config-warning').classList.remove('hidden');return}
-  const login=$('#login-panel'),dash=$('#dashboard'),lm=$('#login-message'),am=$('#admin-message');
-  const message=(text,type='ok')=>{am.className='admin-message '+type;am.textContent=text;setTimeout(()=>{if(am.textContent===text)am.textContent=''},4500)};
-  async function authorized(user){if(!user)return false;const {data,error}=await c.rpc('is_site_admin');return !error&&data===true}
-  async function show(session){
-    if(session?.user&&await authorized(session.user)){
-      login.classList.add('hidden');dash.classList.remove('hidden');$('#admin-identity').textContent=session.user.email;await reloadAll();
-    }else{
-      dash.classList.add('hidden');login.classList.remove('hidden');
-      if(session?.user){lm.className='admin-message error';lm.textContent='This account signed in but is not on the TBOP administrator list.';await c.auth.signOut()}
-    }
-  }
-  const {data:{session}}=await c.auth.getSession();await show(session);
-  $('#login-form').onsubmit=async e=>{e.preventDefault();lm.textContent='Signing in…';const {data,error}=await c.auth.signInWithPassword({email:$('#login-email').value.trim(),password:$('#login-password').value});if(error){lm.className='admin-message error';lm.textContent=error.message;return}await show(data.session)};
-  $('#logout-btn').onclick=async()=>{await c.auth.signOut();location.reload()};
-  $$('.admin-tab').forEach(b=>b.onclick=()=>{$$('.admin-tab,.admin-panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(`[data-panel="${b.dataset.tab}"]`).classList.add('active')});
 
-  async function reloadAll(){await Promise.all([loadDocs(),loadNews(),loadEvents()])}
+  const login=$('#login-panel'),dash=$('#dashboard'),lm=$('#login-message'),am=$('#admin-message');
+  const uploadStatus=$('#doc-upload-status');
+  const uploadBtn=$('#doc-submit');
+  const message=(text,type='ok')=>{am.className='admin-message '+type;am.textContent=text;setTimeout(()=>{if(am.textContent===text)am.textContent=''},5000)};
+  const uploadMessage=(text,type='')=>{if(!uploadStatus)return;uploadStatus.className='upload-status '+type;uploadStatus.textContent=text};
+
+  async function authorized(user){
+    if(!user)return false;
+    const {data,error}=await c.rpc('is_site_admin');
+    if(error){console.error('Admin check failed',error);return false}
+    return data===true;
+  }
 
   async function loadDocs(){
+    const box=$('#admin-documents'); if(!box)return;
     const {data,error}=await c.from('documents').select('*').order('created_at',{ascending:false});
-    if(error){$('#admin-documents').innerHTML=`<div class="notice">${esc(error.message)}</div>`;return}
-    $('#admin-documents').innerHTML=!data?.length?'<div class="notice">No documents yet.</div>':data.map(d=>`<div class="admin-list-row"><div><strong>${esc(d.title)}</strong><small>${esc(d.category)} · ${new Date(d.created_at).toLocaleDateString()}</small></div><div class="row-actions"><a class="btn small" href="${esc(d.file_url)}" target="_blank" rel="noopener">Open</a><button class="btn danger small" data-del-doc="${d.id}" data-path="${esc(d.storage_path)}">Delete</button></div></div>`).join('');
-    $$('[data-del-doc]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this document?'))return;await c.storage.from('documents').remove([b.dataset.path]);const {error}=await c.from('documents').delete().eq('id',b.dataset.delDoc);if(error)message(error.message,'error');else{message('Document deleted.');loadDocs()}})
+    if(error){box.innerHTML=`<div class="notice">${esc(error.message)}</div>`;return}
+    box.innerHTML=!data?.length?'<div class="notice">No documents yet.</div>':data.map(d=>`<div class="admin-list-row"><div><strong>${esc(d.title)}</strong><small>${esc(d.category)} · ${new Date(d.created_at).toLocaleDateString()}</small></div><div class="row-actions"><a class="btn small" href="${esc(d.file_url)}" target="_blank" rel="noopener">Open</a><button class="btn danger small" data-del-doc="${d.id}" data-path="${esc(d.storage_path)}">Delete</button></div></div>`).join('');
+    $$('[data-del-doc]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Delete this document?'))return;
+      const st=await c.storage.from('documents').remove([b.dataset.path]);
+      if(st.error){message('Storage delete failed: '+st.error.message,'error');return}
+      const {error}=await c.from('documents').delete().eq('id',b.dataset.delDoc);
+      if(error)message('Database delete failed: '+error.message,'error');else{message('Document deleted.');loadDocs()}
+    });
   }
-  const fileInput=$('#doc-file'),fileName=$('#doc-file-name'),drop=$('#doc-drop');
+
+  async function loadNews(){
+    const box=$('#admin-news'); if(!box)return;
+    const {data,error}=await c.from('news').select('*').order('created_at',{ascending:false});
+    if(error){box.innerHTML=`<div class="notice">${esc(error.message)}</div>`;return}
+    box.innerHTML=!data?.length?'<div class="notice">No news yet.</div>':data.map(n=>`<div class="admin-list-row"><div><strong>${esc(n.title)}</strong><small>${n.published?'Published':'Draft'}</small></div><div class="row-actions"><button class="btn small" data-edit-news="${n.id}">Edit</button><button class="btn danger small" data-del-news="${n.id}">Delete</button></div></div>`).join('');
+    $$('[data-edit-news]').forEach(b=>b.onclick=()=>editNews(data.find(n=>String(n.id)===String(b.dataset.editNews))));
+    $$('[data-del-news]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this news item?'))return;const {error}=await c.from('news').delete().eq('id',b.dataset.delNews);if(error)message(error.message,'error');else{message('News item deleted.');loadNews()}});
+  }
+
+  function editNews(n){
+    if(!n)return;
+    $('#news-id').value=n.id;$('#news-title').value=n.title||'';$('#news-body').value=n.body||'';$('#news-published').checked=!!n.published;
+    document.querySelector('[data-tab="news"]')?.click();
+  }
+
+  async function loadEvents(){
+    const box=$('#admin-events'); if(!box)return;
+    const {data,error}=await c.from('events').select('*').order('event_date',{ascending:true});
+    if(error){box.innerHTML=`<div class="notice">${esc(error.message)}</div>`;return}
+    box.innerHTML=!data?.length?'<div class="notice">No events yet.</div>':data.map(ev=>`<div class="admin-list-row"><div><strong>${esc(ev.title)}</strong><small>${fmtDate(ev.event_date)}${ev.starts_at?' · '+new Date(ev.starts_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):''}</small></div><div class="row-actions"><button class="btn small" data-edit-event="${ev.id}">Edit</button><button class="btn danger small" data-del-event="${ev.id}">Delete</button></div></div>`).join('');
+    $$('[data-edit-event]').forEach(b=>b.onclick=()=>editEvent(data.find(ev=>String(ev.id)===String(b.dataset.editEvent))));
+    $$('[data-del-event]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this event?'))return;const {error}=await c.from('events').delete().eq('id',b.dataset.delEvent);if(error)message(error.message,'error');else{message('Event deleted.');loadEvents()}});
+  }
+
+  function editEvent(ev){
+    if(!ev)return;
+    $('#event-id').value=ev.id;$('#event-title').value=ev.title||'';$('#event-date').value=ev.event_date||'';$('#event-location').value=ev.location||'';$('#event-description').value=ev.description||'';
+    if($('#event-time')) $('#event-time').value=ev.starts_at?new Date(ev.starts_at).toTimeString().slice(0,5):'';
+    document.querySelector('[data-tab="events"]')?.click();
+  }
+
+  function reloadAll(){
+    // Do not block the Officer Desk on any one list request.
+    loadDocs().catch(console.error);
+    loadNews().catch(console.error);
+    loadEvents().catch(console.error);
+  }
+
+  // Bind tabs and document upload IMMEDIATELY, before session/network restoration.
+  $$('.admin-tab').forEach(b=>b.onclick=()=>{$$('.admin-tab,.admin-panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(`[data-panel="${b.dataset.tab}"]`)?.classList.add('active')});
+
+  const fileInput=$('#doc-file'),fileName=$('#doc-file-name'),drop=$('#doc-drop'),docForm=$('#document-form');
   let droppedFile=null;
   const isPdf=file=>!!file&&(file.type==='application/pdf'||file.name?.toLowerCase().endsWith('.pdf'));
   const chooseFile=file=>{
     if(!file)return false;
-    if(!isPdf(file)){message('Please choose a PDF file.','error');return false}
+    if(!isPdf(file)){uploadMessage('Please choose a PDF file.','error');return false}
     droppedFile=file;
     fileName.textContent=file.name;
+    uploadMessage(`Ready to upload: ${file.name}`,'ok');
     if(!$('#doc-title').value.trim())$('#doc-title').value=file.name.replace(/\.pdf$/i,'').replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
     return true;
   };
   fileInput?.addEventListener('change',()=>chooseFile(fileInput.files?.[0]));
   if(drop){
-    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{
-      e.preventDefault();e.stopPropagation();
-      if(e.dataTransfer)e.dataTransfer.dropEffect='copy';
-      drop.classList.add('dragging');
-    }));
-    ['dragleave','dragend'].forEach(ev=>drop.addEventListener(ev,e=>{
-      e.preventDefault();e.stopPropagation();drop.classList.remove('dragging');
-    }));
-    drop.addEventListener('drop',e=>{
-      e.preventDefault();e.stopPropagation();drop.classList.remove('dragging');
-      const file=e.dataTransfer?.files?.[0];
-      if(file)chooseFile(file);
-    });
+    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';drop.classList.add('dragging')}));
+    ['dragleave','dragend'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('dragging')}));
+    drop.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('dragging');const file=e.dataTransfer?.files?.[0];if(file)chooseFile(file)});
   }
-  $('#document-form').onsubmit=async e=>{
-    e.preventDefault();const file=droppedFile||fileInput.files?.[0];if(!file){message('Choose or drag a PDF into the upload box first.','error');return}
-    const title=$('#doc-title').value.trim()||file.name.replace(/\.pdf$/i,'').replace(/[-_]+/g,' ').trim();
-    const path=`${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'-')}`;
-    message('Uploading and publishing…','warn');
-    const up=await c.storage.from('documents').upload(path,file,{contentType:'application/pdf',upsert:false});if(up.error){message(up.error.message,'error');return}
-    const {data:url}=c.storage.from('documents').getPublicUrl(path);
-    const {error}=await c.from('documents').insert({title,category:$('#doc-category').value,description:$('#doc-description').value.trim(),file_url:url.publicUrl,storage_path:path,published:true});
-    if(error){await c.storage.from('documents').remove([path]);message(error.message,'error');return}
-    e.target.reset();droppedFile=null;fileName.textContent='Tap here or drag a PDF onto this box';message('Document is live on the public site.');loadDocs();
+
+  docForm.onsubmit=async e=>{
+    e.preventDefault();
+    const file=droppedFile||fileInput.files?.[0];
+    if(!file){uploadMessage('Select or drop a PDF first.','error');return}
+    if(!isPdf(file)){uploadMessage('Only PDF files are accepted.','error');return}
+    uploadBtn.disabled=true;
+    try{
+      const {data:{user},error:userErr}=await c.auth.getUser();
+      if(userErr||!user)throw new Error('Your login session is not active. Sign in again.');
+      if(!(await authorized(user)))throw new Error('This account is not authorized to upload documents.');
+      const title=$('#doc-title').value.trim()||file.name.replace(/\.pdf$/i,'').replace(/[-_]+/g,' ').trim();
+      const path=`${Date.now()}-${crypto.randomUUID().slice(0,8)}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'-')}`;
+      uploadMessage('Step 1 of 2: uploading PDF to Storage…','warn');
+      const {error:storageError}=await c.storage.from('documents').upload(path,file,{contentType:'application/pdf',upsert:false,cacheControl:'3600'});
+      if(storageError)throw new Error('Storage upload failed: '+storageError.message);
+      const {data:urlData}=c.storage.from('documents').getPublicUrl(path);
+      if(!urlData?.publicUrl){await c.storage.from('documents').remove([path]);throw new Error('Could not create the public PDF URL.');}
+      uploadMessage('Step 2 of 2: publishing document record…','warn');
+      const {error:dbError}=await c.from('documents').insert({title,category:$('#doc-category').value,description:$('#doc-description').value.trim()||null,file_url:urlData.publicUrl,storage_path:path,published:true});
+      if(dbError){await c.storage.from('documents').remove([path]);throw new Error('Document database save failed: '+dbError.message);}
+      docForm.reset();droppedFile=null;fileName.textContent='Click anywhere in this box or drag a PDF here';
+      uploadMessage('Published successfully. It is now on the public Documents page.','ok');
+      loadDocs();
+    }catch(err){console.error(err);uploadMessage(err.message||String(err),'error')}
+    finally{uploadBtn.disabled=false}
   };
 
-  async function loadNews(){
-    const {data,error}=await c.from('news').select('*').order('created_at',{ascending:false});
-    if(error){$('#admin-news').innerHTML=`<div class="notice">${esc(error.message)}</div>`;return}
-    $('#admin-news').innerHTML=!data?.length?'<div class="notice">No news yet.</div>':data.map(n=>`<div class="admin-list-row"><div><strong>${esc(n.title)}</strong><small>${n.published?'Published':'Draft'}</small></div><div class="row-actions"><button class="btn small" data-edit-news="${n.id}">Edit</button><button class="btn danger small" data-del-news="${n.id}">Delete</button></div></div>`).join('');
-    $$('[data-edit-news]').forEach(b=>b.onclick=()=>{const n=data.find(x=>String(x.id)===b.dataset.editNews);if(!n)return;$('#news-id').value=n.id;$('#news-title').value=n.title;$('#news-body').value=n.body;$('#news-published').checked=!!n.published;$('#news-title').focus()});
-    $$('[data-del-news]').forEach(b=>b.onclick=async()=>{if(confirm('Delete this article?')){const {error}=await c.from('news').delete().eq('id',b.dataset.delNews);if(error)message(error.message,'error');else{message('Article deleted.');loadNews()}}})
-  }
-  $('#news-form').onsubmit=async e=>{
-    e.preventDefault();
-    const id=$('#news-id').value, now=new Date().toISOString(), isPublished=$('#news-published').checked;
-    const p={title:$('#news-title').value.trim(),body:$('#news-body').value.trim(),published:isPublished,published_at:isPublished?now:null,updated_at:now};
-    const r=id?await c.from('news').update(p).eq('id',id):await c.from('news').insert(p);
-    if(r.error)message(r.error.message,'error');else{e.target.reset();$('#news-id').value='';$('#news-published').checked=true;message('News saved.');loadNews();publicNews()}
-  };
+  $('#news-form')?.addEventListener('submit',async e=>{
+    e.preventDefault();const id=$('#news-id').value;const p={title:$('#news-title').value.trim(),body:$('#news-body').value.trim(),published:$('#news-published').checked,published_at:$('#news-published').checked?new Date().toISOString():null};
+    const q=id?c.from('news').update(p).eq('id',id):c.from('news').insert(p);const {error}=await q;if(error)message(error.message,'error');else{e.target.reset();$('#news-id').value='';message('News saved.');loadNews()}
+  });
+  $('#news-clear')?.addEventListener('click',()=>{$('#news-form').reset();$('#news-id').value=''});
 
-  const eventTime=v=>v?.starts_at?new Date(v.starts_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false}):'';
-  async function loadEvents(){
-    const {data,error}=await c.from('events').select('*').order('event_date',{ascending:true}).order('starts_at',{ascending:true,nullsFirst:false});
-    if(error){$('#admin-events').innerHTML=`<div class="notice">${esc(error.message)}</div>`;return}
-    $('#admin-events').innerHTML=!data?.length?'<div class="notice">No events yet.</div>':data.map(v=>`<div class="admin-list-row"><div><strong>${esc(v.title)}</strong><small>${fmtDate(v.event_date)}${eventTime(v)?' · '+esc(eventTime(v)):''}${v.location?' · '+esc(v.location):''}</small></div><div class="row-actions"><button class="btn small" data-edit-event="${v.id}">Edit</button><button class="btn danger small" data-del-event="${v.id}">Delete</button></div></div>`).join('');
-    $$('[data-edit-event]').forEach(b=>b.onclick=()=>{const v=data.find(x=>String(x.id)===b.dataset.editEvent);if(!v)return;$('#event-id').value=v.id;$('#event-title').value=v.title;$('#event-date').value=v.event_date;$('#event-time').value=eventTime(v);$('#event-location').value=v.location||'';$('#event-description').value=v.description||'';$('#event-title').focus()});
-    $$('[data-del-event]').forEach(b=>b.onclick=async()=>{if(confirm('Delete this event?')){const {error}=await c.from('events').delete().eq('id',b.dataset.delEvent);if(error)message(error.message,'error');else{message('Event deleted.');loadEvents();publicEvents()}}})
-  }
-  $('#event-form').onsubmit=async e=>{
-    e.preventDefault();
-    const id=$('#event-id').value, date=$('#event-date').value, time=$('#event-time').value;
-    const startsAt=time?new Date(`${date}T${time}:00`).toISOString():null;
-    const p={title:$('#event-title').value.trim(),event_date:date,starts_at:startsAt,location:$('#event-location').value.trim()||null,description:$('#event-description').value.trim()||null};
+  $('#event-form')?.addEventListener('submit',async e=>{
+    e.preventDefault();const id=$('#event-id').value,date=$('#event-date').value,time=$('#event-time')?.value||'';const p={title:$('#event-title').value.trim(),description:$('#event-description').value.trim()||null,event_date:date,starts_at:time?new Date(`${date}T${time}`).toISOString():null,location:$('#event-location').value.trim()||null};
     if(!id){const {data:{user}}=await c.auth.getUser();if(user)p.created_by=user.id}
-    const r=id?await c.from('events').update(p).eq('id',id):await c.from('events').insert(p);
-    if(r.error)message(r.error.message,'error');else{e.target.reset();$('#event-id').value='';message('Event saved.');loadEvents();publicEvents()}
-  };
+    const q=id?c.from('events').update(p).eq('id',id):c.from('events').insert(p);const {error}=await q;if(error)message(error.message,'error');else{e.target.reset();$('#event-id').value='';message('Event saved.');loadEvents()}
+  });
+  $('#event-clear')?.addEventListener('click',()=>{$('#event-form').reset();$('#event-id').value=''});
 
+  async function show(session){
+    if(session?.user&&await authorized(session.user)){
+      login.classList.add('hidden');dash.classList.remove('hidden');$('#admin-identity').textContent=session.user.email;
+      // Render immediately; refresh lists independently.
+      requestAnimationFrame(()=>reloadAll());
+    }else{
+      dash.classList.add('hidden');login.classList.remove('hidden');
+      if(session?.user){lm.className='admin-message error';lm.textContent='This account signed in but is not on the TBOP administrator list.';await c.auth.signOut()}
+    }
+  }
+
+  $('#login-form').onsubmit=async e=>{e.preventDefault();lm.className='admin-message';lm.textContent='Signing in…';const {data,error}=await c.auth.signInWithPassword({email:$('#login-email').value.trim(),password:$('#login-password').value});if(error){lm.className='admin-message error';lm.textContent=error.message;return}lm.textContent='';await show(data.session)};
+  $('#logout-btn').onclick=async()=>{await c.auth.signOut();dash.classList.add('hidden');login.classList.remove('hidden');location.reload()};
+
+  // Restore the existing session last, after controls are already wired.
+  const {data:{session}}=await c.auth.getSession();
+  await show(session);
 }
-window.addEventListener('DOMContentLoaded',()=>{nav();solar();vhfTabs();publicNews();publicEvents();publicDocs();setup();admin()});
 
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='solar-refresh')solar()});
 })();
