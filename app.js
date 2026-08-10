@@ -8,8 +8,76 @@ let sb=null; const client=()=>{if(sb)return sb;if(!configured()||!window.supabas
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const fmtDate=s=>{if(!s)return'';const d=new Date(s+'T12:00:00');return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'})};
 function nav(){const b=$('.menu-toggle'),m=$('.menu');if(b&&m)b.onclick=()=>{const o=m.classList.toggle('open');b.setAttribute('aria-expanded',o)};}
-async function solar(){const ids=['sfi','kp','sfi-large','kp-large'];if(!ids.some(id=>document.getElementById(id)))return;try{const [fluxR,kpR]=await Promise.all([fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json'),fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json')]);const flux=await fluxR.json(),kp=await kpR.json();const fv=Number(flux.at(-1)?.flux ?? flux.at(-1)?.f107 ?? flux.at(-1)?.['observed_flux']);const row=kp.at(-1),kv=Number(Array.isArray(row)?row[1]:row?.kp_index);if(!Number.isFinite(fv)||!Number.isFinite(kv))throw Error('live data unavailable'); ['sfi','sfi-large'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=Math.round(fv)});['kp','kp-large'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=kv.toFixed(1)});let label='Good',cls='good',copy='Quiet geomagnetic conditions with useful solar support.';if(kv>=5){label='Disturbed';cls='poor';copy='Geomagnetic storming may disrupt HF propagation.'}else if(kv>=3||fv<90){label='Fair';cls='fair';copy='Mixed conditions. Check individual bands and paths.'}$$('#solar-badge,#solar-badge-large').forEach(e=>{e.textContent=label;e.className='condition-badge '+cls});const st=$('#solar-status');if(st)st.textContent=copy;const pt=$('#propagation-title');if(pt)pt.textContent=label+' HF Conditions';const pc=$('#propagation-copy');if(pc)pc.textContent=copy;const sf=$('#sfi-fill');if(sf)sf.style.width=Math.max(5,Math.min(100,(fv-60)/1.9))+'%';const kf=$('#kp-fill');if(kf)kf.style.width=Math.max(3,Math.min(100,kv/9*100))+'%';const sl=$('#sfi-label');if(sl)sl.textContent=fv>=150?'Strong solar support':fv>=100?'Moderate solar support':'Low solar support';const kl=$('#kp-label');if(kl)kl.textContent=kv<2?'Quiet geomagnetic field':kv<4?'Unsettled geomagnetic field':'Storm-level geomagnetic activity';}catch(e){$$('#solar-status,#propagation-copy').forEach(x=>x.textContent='Live space-weather data is temporarily unavailable.');}}
-function vhfTabs(){$$('.vhf-tab').forEach(b=>b.onclick=()=>{$$('.vhf-tab').forEach(x=>x.classList.remove('active'));$$('.vhf-map-panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#band-'+b.dataset.band)?.classList.add('active')})}
+async function solar(){
+  const hasSolar=['sfi','kp','sfi-large','kp-large','r-scale','g-scale','hf-band-grid'].some(id=>document.getElementById(id));
+  if(!hasSolar)return;
+  const refresh=$('#solar-refresh');
+  const updated=$('#solar-updated');
+  if(refresh){refresh.disabled=true;refresh.textContent='↻ Loading…'}
+  if(updated)updated.textContent='Loading current NOAA measurements…';
+  const fetchJson=async urls=>{
+    let lastErr;
+    for(const url of urls){
+      try{const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw Error(String(r.status));return await r.json()}catch(e){lastErr=e}
+    }
+    throw lastErr||Error('No data source available');
+  };
+  const deepNumbers=(obj,names)=>{
+    const wanted=names.map(x=>x.toLowerCase()); let found=[];
+    const walk=(v,k='')=>{if(v&&typeof v==='object'){if(Array.isArray(v)){v.forEach(x=>walk(x,k));}else Object.entries(v).forEach(([kk,vv])=>walk(vv,kk));return}const n=Number(v);if(Number.isFinite(n)&&wanted.some(w=>String(k).toLowerCase().includes(w)))found.push(n)};
+    walk(obj); return found;
+  };
+  const parseFlux=data=>{
+    if(data&&typeof data==='object'&&!Array.isArray(data)){for(const k of ['Flux','flux','f107','observed_flux','value']){const n=Number(data[k]);if(Number.isFinite(n))return n}}
+    if(Array.isArray(data)){
+      for(let i=data.length-1;i>=0;i--){const row=data[i];if(Array.isArray(row)){for(let j=row.length-1;j>=0;j--){const n=Number(row[j]);if(Number.isFinite(n)&&n>50&&n<500)return n}}else if(row&&typeof row==='object'){for(const k of ['flux','f107','observed_flux','Flux','value']){const n=Number(row[k]);if(Number.isFinite(n))return n}}}
+    }
+    return deepNumbers(data,['flux','f107'])[0];
+  };
+  const parseKp=data=>{
+    if(Array.isArray(data)){for(let i=data.length-1;i>=0;i--){const row=data[i];if(Array.isArray(row)){const candidates=row.map(Number).filter(n=>Number.isFinite(n)&&n>=0&&n<=9);if(candidates.length)return candidates.at(-1)}else if(row&&typeof row==='object'){for(const k of ['kp_index','kp','Kp']){const n=Number(row[k]);if(Number.isFinite(n))return n}}}}
+    const vals=deepNumbers(data,['kp_index','kp']);return vals.at(-1);
+  };
+  const parseScale=(data,key)=>{try{const current=data?.['0']||data?.[0]||data;const x=current?.[key]||current?.[key.toLowerCase()];const n=Number(x?.Scale??x?.scale??x);return Number.isFinite(n)?n:null}catch{return null}};
+  const setText=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val};
+  const status=(id,text,cls='neutral')=>{const e=document.getElementById(id);if(e){e.textContent=text;e.className='metric-status '+cls}};
+  const setBand=(band,label,cls)=>{const e=document.querySelector(`[data-band="${band}"] .band-rating`);if(e){e.textContent=label;e.className='band-rating '+cls}};
+  const rateBands=(f,k)=>{
+    const storm=k>=5, active=k>=4;
+    const rate=(minGood,minFair)=>storm?['POOR','poor']:(f>=minGood&&!active?['GOOD','good']:f>=minFair&&k<=4?['FAIR','fair']:['POOR','poor']);
+    [['10m',150,105],['12m',140,100],['15m',125,90],['17m',110,85],['20m',90,75]].forEach(([b,g,fa])=>{const r=rate(g,fa);setBand(b,r[0],r[1])});
+    const low=storm?['POOR','poor']:k<=2?['GOOD','good']:k<=4?['FAIR','fair']:['POOR','poor'];
+    ['30m','40m','80m'].forEach(b=>setBand(b,low[0],low[1]));
+  };
+  try{
+    const [fluxData,kpData,scaleData]=await Promise.all([
+      fetchJson(['https://services.swpc.noaa.gov/products/summary/10cm-flux.json','https://services.swpc.noaa.gov/json/f107_cm_flux.json']),
+      fetchJson(['https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json']),
+      fetchJson(['https://services.swpc.noaa.gov/products/noaa-scales.json']).catch(()=>null)
+    ]);
+    const fv=Number(parseFlux(fluxData)), kv=Number(parseKp(kpData));
+    if(!Number.isFinite(fv)||!Number.isFinite(kv))throw Error('Could not parse NOAA data');
+    ['sfi','sfi-large'].forEach(id=>setText(id,Math.round(fv))); ['kp','kp-large'].forEach(id=>setText(id,kv.toFixed(1)));
+    const rs=parseScale(scaleData,'R'), gs=parseScale(scaleData,'G');
+    setText('r-scale',rs===null?'—':'R'+rs);setText('g-scale',gs===null?'—':'G'+gs);
+    status('r-label',rs===null?'NOAA scale':rs===0?'None':rs<=2?'Minor / Moderate':'Strong+',rs===0?'good':rs<=2?'fair':'poor');
+    status('g-label',gs===null?'NOAA scale':gs===0?'None':gs<=2?'Minor / Moderate':'Strong+',gs===0?'good':gs<=2?'fair':'poor');
+    status('sfi-label',fv>=150?'Strong':fv>=110?'Good':fv>=85?'Moderate':'Low',fv>=110?'good':fv>=85?'fair':'poor');
+    status('kp-label',kv<=2?'Quiet':kv<=4?'Unsettled':kv<5?'Active':'Storm',kv<=2?'good':kv<=4?'fair':'poor');
+    let label='GOOD',cls='good',title='Good HF Conditions',copy='Quiet geomagnetic conditions with useful solar support. Upper HF bands may offer good opportunities depending on time and path.';
+    if(kv>=5){label='DISTURBED';cls='poor';title='Disturbed HF Conditions';copy='Geomagnetic storming may disrupt HF propagation, especially northern and polar paths.'}
+    else if(kv>=3||fv<100){label='FAIR';cls='fair';title='Fair HF Conditions';copy='Mixed conditions. Lower and middle HF bands may remain useful while upper bands can be more path-dependent.'}
+    setText('propagation-title',title);setText('propagation-copy',copy);const badge=$('#solar-badge-large');if(badge){badge.textContent=label;badge.className='condition-badge '+cls}
+    rateBands(fv,kv);
+    if(kv>=5){setText('two-meter-note','Geomagnetic activity is elevated. Auroral VHF effects are possible at higher latitudes; normal repeater/local paths may still be usable.');setText('seventy-note','Solar storming does not directly predict 70 cm range. Check local weather/tropo and repeater coverage.');const a=$('#two-meter-rating');if(a){a.textContent='WATCH';a.className='condition-badge fair'}}
+    else{setText('two-meter-note','Normal local/repeater operation expected. Solar conditions mainly matter during unusual auroral events.');setText('seventy-note','Normal local/repeater operation expected. Tropo, terrain and antenna height usually matter more than F10.7.');}
+    if(updated)updated.textContent='Updated '+new Date().toLocaleString()+' · NOAA SWPC';
+  }catch(e){
+    ['sfi-large','kp-large','r-scale','g-scale'].forEach(id=>setText(id,'—'));setText('propagation-title','Live data unavailable');setText('propagation-copy','NOAA data could not be loaded right now. Use the NOAA SWPC link below and try Refresh Data again.');if(updated)updated.textContent='Unable to load NOAA data.';
+  }finally{if(refresh){refresh.disabled=false;refresh.textContent='↻ Refresh Data'}}
+}
+
+function vhfTabs(){}
 async function publicNews(){const targets=[$('#news-list'),$('#news-page-list')].filter(Boolean);if(!targets.length)return;const c=client();if(!c){targets.forEach(t=>t.innerHTML='<div class="notice">Club news will appear here after the site is connected to Supabase.</div>');return}const {data,error}=await c.from('news').select('*').eq('published',true).order('published_at',{ascending:false}).limit($('#news-page-list')?50:3);const html=error||!data?.length?'<div class="notice">No club news has been published yet.</div>':data.map(n=>`<article class="news-row"><div class="row-meta">${new Date(n.published_at||n.created_at).toLocaleDateString()}</div><h3>${esc(n.title)}</h3><p>${esc(n.body).replace(/\n/g,'<br>')}</p></article>`).join('');targets.forEach(t=>t.innerHTML=html)}
 async function publicEvents(){const t=$('#event-list');const c=client();if(!t&&!$('#next-event-title'))return;if(!c){if(t)t.innerHTML='<div class="notice">Events will appear here after the site is connected to Supabase.</div>';return}const today=new Date().toISOString().slice(0,10);const {data,error}=await c.from('events').select('*').gte('event_date',today).order('event_date').order('event_time');if(t)t.innerHTML=error||!data?.length?'<div class="notice">No upcoming events have been posted.</div>':data.map(e=>`<article class="event-row"><div class="row-meta">${fmtDate(e.event_date)}${e.event_time?' · '+esc(e.event_time.slice(0,5)):''}</div><h3>${esc(e.title)}</h3>${e.location?`<strong>${esc(e.location)}</strong>`:''}${e.description?`<p>${esc(e.description).replace(/\n/g,'<br>')}</p>`:''}</article>`).join('');if(data?.[0]){$('#next-event-title')?.replaceChildren(document.createTextNode(data[0].title));$('#next-event-date')?.replaceChildren(document.createTextNode(fmtDate(data[0].event_date)+(data[0].location?' · '+data[0].location:'')))}}
 async function publicDocs(){const t=$('#documents-list');if(!t)return;const c=client();if(!c){t.innerHTML='<div class="notice">The online document library will appear here after Supabase setup. The membership application remains available on the Membership page.</div>';return}const {data,error}=await c.from('documents').select('*').eq('published',true).order('category').order('created_at',{ascending:false});if(error||!data?.length){t.innerHTML='<div class="notice">No public documents have been published yet.</div>';return}const groups={};data.forEach(d=>(groups[d.category||'Other']??=[]).push(d));t.innerHTML=Object.entries(groups).map(([cat,rows])=>`<section class="document-group"><div class="doc-category-head"><h2>${esc(cat)}</h2><span>${rows.length} document${rows.length===1?'':'s'}</span></div>${rows.map(d=>`<article class="doc-row"><div><h3>${esc(d.title)}</h3>${d.description?`<p>${esc(d.description)}</p>`:''}<small>${new Date(d.created_at).toLocaleDateString()}</small></div><a class="btn small" target="_blank" rel="noopener" href="${esc(d.file_url)}">Open PDF</a></article>`).join('')}</section>`).join('')}
@@ -79,4 +147,6 @@ async function admin(){
   $('#event-form').onsubmit=async e=>{e.preventDefault();const id=$('#event-id').value,p={title:$('#event-title').value.trim(),event_date:$('#event-date').value,event_time:$('#event-time').value||null,location:$('#event-location').value.trim(),description:$('#event-description').value.trim()};const r=id?await c.from('events').update(p).eq('id',id):await c.from('events').insert(p);if(r.error)message(r.error.message,'error');else{e.target.reset();$('#event-id').value='';message('Event saved.');loadEvents()}};
 }
 window.addEventListener('DOMContentLoaded',()=>{nav();solar();vhfTabs();publicNews();publicEvents();publicDocs();setup();admin()});
+
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='solar-refresh')solar()});
 })();

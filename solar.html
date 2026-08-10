@@ -1,2 +1,62 @@
-<!doctype html><html lang="en"><head><title>Conditions | The Blowtorch of Parma</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0a0f14"><link rel="stylesheet" href="styles.css"><script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script defer src="supabase-config.js"></script><script defer src="app.js"></script></head><body><header class="site-header"><div class="wrap nav"><a class="brand" href="index.html"><span class="brand-mark">⌁</span><span>THE BLOWTORCH OF PARMA<small>AMATEUR RADIO CLUB</small></span></a><button class="menu-toggle" aria-label="Open menu" aria-expanded="false">☰</button><nav class="menu"><a href="index.html">Home</a><a href="calendar.html">Calendar</a><a href="solar.html">Conditions</a><a href="membership.html">Membership</a><a href="documents.html">Documents</a><a href="news.html">News</a><a class="officer-link" href="admin.html">Officer Login</a></nav></div></header><main><section class="page-head"><div class="wrap"><div class="eyebrow">Radio Conditions</div><h1>Solar · VHF · UHF</h1><p>Live space-weather information and quick access to VHF/UHF propagation resources.</p></div></section><section class="solar-dashboard"><div class="wrap"><div class="solar-main-grid"><article class="solar-gauge-card"><div class="gauge-label"><span>Solar Flux Index</span><span class="data-source">NOAA</span></div><div class="gauge-row"><div class="orb sun-orb"><span id="sfi-large">—</span><small>SFI</small></div><div class="gauge-copy"><h2 id="sfi-label">Checking solar activity…</h2><p>Higher SFI generally supports better upper-HF propagation.</p><div class="scale"><span>Low</span><div class="scale-track"><div id="sfi-fill" class="scale-fill"></div></div><span>High</span></div></div></div></article><article class="solar-gauge-card"><div class="gauge-label"><span>Planetary K-index</span><span class="data-source">NOAA</span></div><div class="gauge-row"><div class="orb kp-orb"><span id="kp-large">—</span><small>Kp</small></div><div class="gauge-copy"><h2 id="kp-label">Checking geomagnetic field…</h2><p>Lower Kp generally means a quieter geomagnetic field.</p><div class="scale"><span>Quiet</span><div class="scale-track"><div id="kp-fill" class="scale-fill"></div></div><span>Storm</span></div></div></div></article></div><div class="propagation-banner"><div><div class="eyebrow">Overall outlook</div><h2 id="propagation-title">Checking conditions…</h2><p id="propagation-copy">Loading live data.</p></div><span id="solar-badge-large" class="condition-badge neutral">LIVE</span></div>
-<div class="vhf-map-section"><div class="section-title"><div class="eyebrow">VHF / UHF</div><h2>2 m & 70 cm Propagation</h2><p>Use live activity and tropo resources to spot enhanced VHF/UHF paths.</p></div><div class="vhf-band-tabs"><button class="vhf-tab active" data-band="2m">2 m · 144 MHz</button><button class="vhf-tab" data-band="70cm">70 cm · 432 MHz</button></div><div id="band-2m" class="vhf-map-panel active"><div class="map-status-row"><div><span class="map-live"><span class="pulse-dot"></span> LIVE ACTIVITY</span><h3>2 Meter Propagation</h3><p>APRS-derived VHF propagation activity. Use the full map for the latest paths.</p></div><span class="band-chip">144 MHz</span></div><div class="prop-map-frame"><iframe title="2 meter propagation map" loading="lazy" src="https://vhf.dxview.org/"></iframe><div class="map-fallback">If the embedded map is blocked, use the button below.</div></div><div class="map-actions"><a class="btn primary" target="_blank" rel="noopener" href="https://vhf.dxview.org/">Open Full 2 m Map</a><a class="btn" target="_blank" rel="noopener" href="https://www.dxinfocentre.com/tropo.html">Tropo Forecast</a></div></div><div id="band-70cm" class="vhf-map-panel"><div class="map-status-row"><div><span class="map-live uhf">LIVE RESOURCE</span><h3>70 Centimeter Conditions</h3><p>Open the 432 MHz activity map or tropo forecast. DXMaps is linked rather than embedded.</p></div><span class="band-chip uhf">432 MHz</span></div><div class="uhf-map-launch"><div class="radar-rings"><span></span><span></span><span></span><i></i></div><div class="uhf-map-copy"><strong>432 MHz Activity</strong><p>Look for current 70 cm contacts, enhanced paths and regional openings.</p><div class="actions"><a class="btn primary" target="_blank" rel="noopener" href="https://www.dxmaps.com/spots/mapg.php?Lan=E&Frec=432">Open 70 cm Map</a><a class="btn" target="_blank" rel="noopener" href="https://www.dxinfocentre.com/tropo.html">Tropo Forecast</a></div></div></div></div></div></div></section></main><footer class="footer"><div class="wrap footer-grid"><div><strong>The Blowtorch of Parma</strong><br><span>Amateur Radio Club · Northeast Ohio</span></div><a href="admin.html">Officer Login</a></div></footer></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Solar & Propagation | The Blowtorch of Parma</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0a0f14">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="supabase-config.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+<header class="site-header"><div class="wrap nav"><a class="brand" href="index.html"><span class="brand-mark">⌁</span><span>THE BLOWTORCH OF PARMA<small>AMATEUR RADIO CLUB</small></span></a><button class="menu-toggle" aria-label="Open menu" aria-expanded="false">☰</button><nav class="menu"><a href="index.html">Home</a><a href="calendar.html">Calendar</a><a class="active" href="solar.html">Conditions</a><a href="membership.html">Membership</a><a href="documents.html">Documents</a><a href="news.html">News</a><a class="officer-link" href="admin.html">Officer Login</a></nav></div></header>
+
+<main>
+<section class="page-head solar-page-head"><div class="wrap"><div class="eyebrow">SPACE WEATHER</div><h1>Solar & Propagation</h1><p>Live NOAA space-weather measurements with practical amateur-radio estimates for Northeast Ohio.</p></div></section>
+
+<section class="solar-report-section"><div class="wrap">
+  <div class="solar-report-toolbar">
+    <div><span class="live-pill solar-live-pill"><span class="pulse-dot"></span> NOAA LIVE DATA</span><p id="solar-updated" class="solar-updated">Loading current measurements…</p></div>
+    <button id="solar-refresh" class="btn primary" type="button">↻ Refresh Data</button>
+  </div>
+
+  <div class="solar-metric-grid">
+    <article class="solar-metric-card"><span class="metric-kicker">GEOMAGNETIC</span><div id="kp-large" class="metric-value">—</div><strong>Kp Index</strong><span id="kp-label" class="metric-status neutral">Loading…</span></article>
+    <article class="solar-metric-card"><span class="metric-kicker">SOLAR ACTIVITY</span><div id="sfi-large" class="metric-value">—</div><strong>F10.7 Flux</strong><span id="sfi-label" class="metric-status neutral">Loading…</span></article>
+    <article class="solar-metric-card"><span class="metric-kicker">NOAA R SCALE</span><div id="r-scale" class="metric-value scale-value">—</div><strong>Radio Blackout</strong><span id="r-label" class="metric-status neutral">Loading…</span></article>
+    <article class="solar-metric-card"><span class="metric-kicker">NOAA G SCALE</span><div id="g-scale" class="metric-value scale-value">—</div><strong>Geomagnetic Storm</strong><span id="g-label" class="metric-status neutral">Loading…</span></article>
+  </div>
+
+  <article class="solar-outlook-card">
+    <div><div class="eyebrow">CURRENT OUTLOOK</div><h2 id="propagation-title">Checking conditions…</h2><p id="propagation-copy">Loading NOAA space-weather data.</p></div>
+    <span id="solar-badge-large" class="condition-badge neutral">LIVE</span>
+  </article>
+
+  <div class="section-title solar-band-heading"><div class="eyebrow">ESTIMATED OUTLOOK</div><h2>HF Band Conditions</h2><p>Quick estimates based on current Kp and F10.7 flux. Actual propagation varies with time, path, season, antenna and local noise.</p></div>
+  <div id="hf-band-grid" class="band-condition-grid">
+    <article class="band-condition-card" data-band="10m"><div><strong>10 m</strong><span>28 MHz</span></div><b class="band-rating neutral">—</b><small>Upper HF</small></article>
+    <article class="band-condition-card" data-band="12m"><div><strong>12 m</strong><span>24 MHz</span></div><b class="band-rating neutral">—</b><small>Upper HF</small></article>
+    <article class="band-condition-card" data-band="15m"><div><strong>15 m</strong><span>21 MHz</span></div><b class="band-rating neutral">—</b><small>DX</small></article>
+    <article class="band-condition-card" data-band="17m"><div><strong>17 m</strong><span>18 MHz</span></div><b class="band-rating neutral">—</b><small>DX</small></article>
+    <article class="band-condition-card" data-band="20m"><div><strong>20 m</strong><span>14 MHz</span></div><b class="band-rating neutral">—</b><small>Workhorse</small></article>
+    <article class="band-condition-card" data-band="30m"><div><strong>30 m</strong><span>10 MHz</span></div><b class="band-rating neutral">—</b><small>CW / Digital</small></article>
+    <article class="band-condition-card" data-band="40m"><div><strong>40 m</strong><span>7 MHz</span></div><b class="band-rating neutral">—</b><small>Regional / DX</small></article>
+    <article class="band-condition-card" data-band="80m"><div><strong>80 m</strong><span>3.5 MHz</span></div><b class="band-rating neutral">—</b><small>Night / Regional</small></article>
+  </div>
+
+  <div class="section-title solar-band-heading"><div class="eyebrow">LOCAL BANDS</div><h2>2 m & 70 cm</h2><p>No map clutter. These cards give a simple operating note; local VHF/UHF performance depends mostly on terrain, antenna height, weather/tropo and repeater coverage rather than F10.7 alone.</p></div>
+  <div class="local-band-grid">
+    <article class="local-band-card"><div class="local-band-icon">2m</div><div><h3>2 Meter · 144 MHz</h3><p id="two-meter-note">Normal local/repeater operation expected. Solar conditions mainly matter during unusual auroral events.</p></div><span id="two-meter-rating" class="condition-badge good">NORMAL</span></article>
+    <article class="local-band-card"><div class="local-band-icon">70</div><div><h3>70 Centimeter · 432 MHz</h3><p id="seventy-note">Normal local/repeater operation expected. Tropo and terrain are usually more important than HF-style solar flux.</p></div><span id="seventy-rating" class="condition-badge good">NORMAL</span></article>
+  </div>
+
+  <div class="solar-read-grid">
+    <article class="admin-card solar-read-card"><div class="eyebrow">HOW TO READ IT</div><h2>Quick Reference</h2><div class="read-row"><strong>Kp 0–2</strong><span>Quiet geomagnetic conditions</span></div><div class="read-row"><strong>Kp 3–4</strong><span>Unsettled to active</span></div><div class="read-row"><strong>Kp 5+</strong><span>Geomagnetic storm conditions</span></div><div class="read-row"><strong>Higher F10.7</strong><span>Often improves upper-HF potential</span></div></article>
+    <article class="admin-card solar-read-card"><div class="eyebrow">PRIMARY SOURCES</div><h2>Live Resources</h2><p>Measurements come from NOAA Space Weather Prediction Center. Band ratings on this page are estimates, not propagation guarantees.</p><div class="actions"><a class="btn" target="_blank" rel="noopener" href="https://www.swpc.noaa.gov/">NOAA SWPC</a><a class="btn" target="_blank" rel="noopener" href="https://pskreporter.info/">PSK Reporter</a></div></article>
+  </div>
+</div></section>
+</main>
+<footer class="footer"><div class="wrap footer-grid"><div><strong>The Blowtorch of Parma</strong><br><span>Amateur Radio Club · Northeast Ohio</span></div><a href="admin.html">Officer Login</a></div></footer>
+</body></html>
