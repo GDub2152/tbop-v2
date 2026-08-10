@@ -287,6 +287,135 @@ async function admin(){
 
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='solar-refresh')solar()});
 
+
+
+function secretaryHelper(){
+  const root=document.querySelector('[data-panel="secretary"]');
+  if(!root)return;
+
+  const E=id=>document.getElementById(id);
+  const q=s=>root.querySelector(s), qa=s=>[...root.querySelectorAll(s)];
+  const fields=['sec-title','sec-date','sec-start','sec-end','sec-location','sec-presiding','sec-secretary','sec-quorum','sec-type','sec-call','sec-prev','sec-treasurer','sec-reports','sec-old','sec-newbusiness','sec-announcements','sec-adjournment'];
+  let attendees=[],motions=[],actions=[];
+  const id=()=>crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now();
+  const x=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const nl=s=>x(s).replace(/\n/g,'<br>');
+  const prettyDate=v=>v?new Date(v+'T12:00:00').toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}):'';
+  const status=(msg,kind='')=>{const el=E('sec-status');if(!el)return;el.className='admin-message '+kind;el.textContent=msg;setTimeout(()=>{if(el.textContent===msg)el.textContent=''},3500)};
+
+  const renderAttendance=()=>{
+    E('sec-attendance').innerHTML=attendees.length?attendees.map(a=>`<div class="sec-attendee-row"><input data-sec-att-name="${a.id}" value="${x(a.name)}" placeholder="Name"><input data-sec-att-call="${a.id}" value="${x(a.call)}" placeholder="Callsign"><button type="button" class="sec-remove" data-sec-att-del="${a.id}">×</button></div>`).join(''):'<div class="notice">No attendees added yet.</div>';
+  };
+  const renderMotions=()=>{
+    E('sec-motions').innerHTML=motions.length?motions.map((m,i)=>`<div class="sec-motion-card"><div class="secretary-card-head"><strong>Motion ${i+1}</strong><button type="button" class="sec-remove" data-sec-motion-del="${m.id}">×</button></div><div class="sec-motion-grid"><label class="wide">Motion text<textarea data-sec-motion-text="${m.id}" rows="3">${x(m.text)}</textarea></label><label>Made by<input data-sec-motion-maker="${m.id}" value="${x(m.maker)}"></label><label>Seconded by<input data-sec-motion-second="${m.id}" value="${x(m.second)}"></label><label>Result<select data-sec-motion-result="${m.id}">${['Pending','Passed','Failed','Withdrawn','Tabled'].map(v=>`<option ${m.result===v?'selected':''}>${v}</option>`).join('')}</select></label><label>Vote / notes<input data-sec-motion-vote="${m.id}" value="${x(m.vote)}" placeholder="Unanimous, 8-2, voice vote..."></label></div></div>`).join(''):'<div class="notice">No motions recorded.</div>';
+  };
+  const renderActions=()=>{
+    E('sec-actions').innerHTML=actions.length?actions.map(a=>`<div class="sec-action-card"><div class="sec-action-grid"><label>Action<input data-sec-action-task="${a.id}" value="${x(a.task)}"></label><label>Responsible<input data-sec-action-owner="${a.id}" value="${x(a.owner)}"></label><label>Due<input type="date" data-sec-action-due="${a.id}" value="${x(a.due)}"></label><button type="button" class="sec-remove" data-sec-action-del="${a.id}">×</button></div></div>`).join(''):'<div class="notice">No action items recorded.</div>';
+  };
+
+  const pull=()=>{
+    qa('[data-sec-att-name]').forEach(el=>{const a=attendees.find(v=>v.id===el.dataset.secAttName);if(a)a.name=el.value});
+    qa('[data-sec-att-call]').forEach(el=>{const a=attendees.find(v=>v.id===el.dataset.secAttCall);if(a)a.call=el.value});
+    qa('[data-sec-motion-text]').forEach(el=>{const m=motions.find(v=>v.id===el.dataset.secMotionText);if(m)m.text=el.value});
+    qa('[data-sec-motion-maker]').forEach(el=>{const m=motions.find(v=>v.id===el.dataset.secMotionMaker);if(m)m.maker=el.value});
+    qa('[data-sec-motion-second]').forEach(el=>{const m=motions.find(v=>v.id===el.dataset.secMotionSecond);if(m)m.second=el.value});
+    qa('[data-sec-motion-result]').forEach(el=>{const m=motions.find(v=>v.id===el.dataset.secMotionResult);if(m)m.result=el.value});
+    qa('[data-sec-motion-vote]').forEach(el=>{const m=motions.find(v=>v.id===el.dataset.secMotionVote);if(m)m.vote=el.value});
+    qa('[data-sec-action-task]').forEach(el=>{const a=actions.find(v=>v.id===el.dataset.secActionTask);if(a)a.task=el.value});
+    qa('[data-sec-action-owner]').forEach(el=>{const a=actions.find(v=>v.id===el.dataset.secActionOwner);if(a)a.owner=el.value});
+    qa('[data-sec-action-due]').forEach(el=>{const a=actions.find(v=>v.id===el.dataset.secActionDue);if(a)a.due=el.value});
+  };
+
+  const gather=()=>{
+    pull();const d={};fields.forEach(f=>d[f]=E(f)?.value||'');d.attendees=attendees;d.motions=motions;d.actions=actions;return d;
+  };
+  const fill=d=>{
+    fields.forEach(f=>{if(E(f)&&d[f]!==undefined)E(f).value=d[f]});
+    attendees=d.attendees||[];motions=d.motions||[];actions=d.actions||[];
+    renderAttendance();renderMotions();renderActions();buildMinutes();
+  };
+  const textBlock=t=>t?.trim()?`<p>${nl(t)}</p>`:'<p><em>None recorded.</em></p>';
+
+  const buildMinutes=()=>{
+    const d=gather();
+    const present=d.attendees.filter(a=>a.name||a.call).map(a=>[a.name,a.call].filter(Boolean).join(' — '));
+    E('sec-preview').innerHTML=`
+      <h2>The Blowtorch of Parma — Amateur Radio Club</h2>
+      <h3>${x(d['sec-title']||'Meeting Minutes')}</h3>
+      <p class="sec-meta"><strong>Date:</strong> ${x(prettyDate(d['sec-date'])||'—')}<br>
+      <strong>Location:</strong> ${x(d['sec-location']||'—')}<br>
+      <strong>Meeting Type:</strong> ${x(d['sec-type']||'—')}<br>
+      <strong>Presiding:</strong> ${x(d['sec-presiding']||'—')}<br>
+      <strong>Secretary:</strong> ${x(d['sec-secretary']||'—')}<br>
+      <strong>Start:</strong> ${x(d['sec-start']||'—')} &nbsp; <strong>End:</strong> ${x(d['sec-end']||'—')}<br>
+      <strong>Quorum:</strong> ${x(d['sec-quorum']||'Not recorded')}</p>
+      <h3>Attendance</h3><p>${present.length?present.map(x).join(', '):'<em>Not recorded.</em>'}</p>
+      <h3>Call to Order</h3>${textBlock(d['sec-call'])}
+      <h3>Previous Minutes</h3>${textBlock(d['sec-prev'])}
+      <h3>Treasurer's Report</h3>${textBlock(d['sec-treasurer'])}
+      <h3>Officer / Committee Reports</h3>${textBlock(d['sec-reports'])}
+      <h3>Old Business</h3>${textBlock(d['sec-old'])}
+      <h3>New Business</h3>${textBlock(d['sec-newbusiness'])}
+      <h3>Motions</h3>${d.motions.length?`<ol>${d.motions.map(m=>`<li><strong>${x(m.text||'Motion')}</strong>${m.maker?` — Made by ${x(m.maker)}`:''}${m.second?`, seconded by ${x(m.second)}`:''}. <strong>${x(m.result||'Pending')}</strong>${m.vote?` (${x(m.vote)})`:''}.</li>`).join('')}</ol>`:'<p><em>No motions recorded.</em></p>'}
+      <h3>Action Items</h3>${d.actions.length?`<ul>${d.actions.map(a=>`<li>${x(a.task||'Action item')}${a.owner?` — ${x(a.owner)}`:''}${a.due?` — Due ${x(prettyDate(a.due))}`:''}</li>`).join('')}</ul>`:'<p><em>No action items recorded.</em></p>'}
+      <h3>Announcements</h3>${textBlock(d['sec-announcements'])}
+      <h3>Adjournment</h3>${textBlock(d['sec-adjournment'])}
+      <p style="margin-top:2.3rem"><strong>Respectfully submitted,</strong><br>${x(d['sec-secretary']||'Secretary')}</p>`;
+  };
+
+  const minutesText=()=>{
+    const d=gather(),out=['THE BLOWTORCH OF PARMA — AMATEUR RADIO CLUB',d['sec-title']||'Meeting Minutes','',
+      `Date: ${prettyDate(d['sec-date'])||'—'}`,`Location: ${d['sec-location']||'—'}`,`Meeting Type: ${d['sec-type']||'—'}`,
+      `Presiding: ${d['sec-presiding']||'—'}`,`Secretary: ${d['sec-secretary']||'—'}`,`Start: ${d['sec-start']||'—'}   End: ${d['sec-end']||'—'}`,`Quorum: ${d['sec-quorum']||'Not recorded'}`,''];
+    out.push('ATTENDANCE',d.attendees.filter(a=>a.name||a.call).map(a=>[a.name,a.call].filter(Boolean).join(' — ')).join(', ')||'Not recorded.','');
+    const add=(h,t)=>out.push(h.toUpperCase(),t?.trim()||'None recorded.','');
+    add('Call to Order',d['sec-call']);add('Previous Minutes',d['sec-prev']);add("Treasurer's Report",d['sec-treasurer']);add('Officer / Committee Reports',d['sec-reports']);add('Old Business',d['sec-old']);add('New Business',d['sec-newbusiness']);
+    out.push('MOTIONS');d.motions.length?d.motions.forEach((m,i)=>out.push(`${i+1}. ${m.text||'Motion'}${m.maker?` — Made by ${m.maker}`:''}${m.second?`, seconded by ${m.second}`:''}. ${m.result||'Pending'}${m.vote?` (${m.vote})`:''}.`)):out.push('No motions recorded.');
+    out.push('','ACTION ITEMS');d.actions.length?d.actions.forEach((a,i)=>out.push(`${i+1}. ${a.task||'Action item'}${a.owner?` — ${a.owner}`:''}${a.due?` — Due ${prettyDate(a.due)}`:''}`)):out.push('No action items recorded.');
+    out.push('');add('Announcements',d['sec-announcements']);add('Adjournment',d['sec-adjournment']);out.push('Respectfully submitted,',d['sec-secretary']||'Secretary');
+    return out.join('\n');
+  };
+
+  const saveDraft=()=>{try{localStorage.setItem('tbop_sec_draft',JSON.stringify(gather()))}catch{};buildMinutes()};
+  const renderHistory=()=>{
+    const all=JSON.parse(localStorage.getItem('tbop_sec_history')||'[]');
+    E('sec-history').innerHTML=all.length?all.map((d,i)=>`<div class="sec-history-row"><div><strong>${x(d['sec-title']||'Meeting')}</strong><small>${x(prettyDate(d['sec-date']))}</small></div><div class="row-actions"><button type="button" class="btn small" data-sec-open="${i}">Open</button><button type="button" class="btn danger small" data-sec-delete="${i}">Delete</button></div></div>`).join(''):'<div class="notice">No saved meetings yet.</div>';
+  };
+  const saveMeeting=()=>{
+    const d=gather();if(!d['sec-date']){status('Enter a meeting date before saving.','error');return}
+    const all=JSON.parse(localStorage.getItem('tbop_sec_history')||'[]'),key=d['sec-date']+'|'+(d['sec-title']||'Meeting'),i=all.findIndex(v=>v._key===key);
+    d._key=key;d._saved=new Date().toISOString();if(i>=0)all[i]=d;else all.unshift(d);
+    localStorage.setItem('tbop_sec_history',JSON.stringify(all));localStorage.setItem('tbop_sec_draft',JSON.stringify(d));renderHistory();status('Meeting saved on this device.','ok');
+  };
+
+  qa('.sec-subtab').forEach(b=>b.addEventListener('click',()=>{
+    qa('.sec-subtab,.sec-panel').forEach(v=>v.classList.remove('active'));b.classList.add('active');q(`[data-sec-panel="${b.dataset.secTab}"]`)?.classList.add('active');if(b.dataset.secTab==='minutes')buildMinutes();if(b.dataset.secTab==='history')renderHistory();
+  }));
+  root.addEventListener('click',e=>{
+    const t=e.target;
+    if(t.dataset.secAttDel){attendees=attendees.filter(a=>a.id!==t.dataset.secAttDel);renderAttendance();saveDraft()}
+    if(t.dataset.secMotionDel){motions=motions.filter(m=>m.id!==t.dataset.secMotionDel);renderMotions();saveDraft()}
+    if(t.dataset.secActionDel){actions=actions.filter(a=>a.id!==t.dataset.secActionDel);renderActions();saveDraft()}
+    if(t.dataset.secOpen!==undefined){const all=JSON.parse(localStorage.getItem('tbop_sec_history')||'[]');fill(all[Number(t.dataset.secOpen)]||{});status('Saved meeting opened.','ok')}
+    if(t.dataset.secDelete!==undefined){const all=JSON.parse(localStorage.getItem('tbop_sec_history')||'[]');all.splice(Number(t.dataset.secDelete),1);localStorage.setItem('tbop_sec_history',JSON.stringify(all));renderHistory()}
+  });
+  root.addEventListener('input',()=>{clearTimeout(window._tbopSecTimer);window._tbopSecTimer=setTimeout(saveDraft,350)});
+
+  E('sec-add-attendee').onclick=()=>{attendees.push({id:id(),name:'',call:''});renderAttendance()};
+  E('sec-add-motion').onclick=()=>{motions.push({id:id(),text:'',maker:'',second:'',result:'Pending',vote:''});renderMotions()};
+  E('sec-add-action').onclick=()=>{actions.push({id:id(),task:'',owner:'',due:''});renderActions()};
+  E('sec-save').onclick=saveMeeting;
+  E('sec-new').onclick=()=>{if(!confirm('Start a new meeting? Save your current meeting first if needed.'))return;localStorage.removeItem('tbop_sec_draft');fields.forEach(f=>{if(E(f))E(f).value=''});E('sec-title').value='Regular Club Meeting';E('sec-type').value='Regular';E('sec-date').value=new Date().toISOString().slice(0,10);attendees=[{id:id(),name:'',call:''}];motions=[];actions=[];renderAttendance();renderMotions();renderActions();buildMinutes()};
+  E('sec-copy').onclick=async()=>{try{await navigator.clipboard.writeText(minutesText());status('Formatted minutes copied.','ok')}catch{status('Copy was blocked by the browser. Use Download TXT instead.','error')}};
+  E('sec-download').onclick=()=>{const blob=new Blob([minutesText()],{type:'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`TBOP-Minutes-${E('sec-date').value||'meeting'}.txt`;a.click();URL.revokeObjectURL(a.href)};
+  E('sec-print').onclick=()=>{buildMinutes();document.body.classList.add('sec-printing');window.print();setTimeout(()=>document.body.classList.remove('sec-printing'),400)};
+  E('sec-clear-history').onclick=()=>{if(confirm('Delete all locally saved Secretary Helper meetings from this browser?')){localStorage.removeItem('tbop_sec_history');renderHistory()}};
+
+  E('sec-date').value=new Date().toISOString().slice(0,10);
+  try{const draft=JSON.parse(localStorage.getItem('tbop_sec_draft')||'null');if(draft)fill(draft);else{attendees=[{id:id(),name:'',call:''}];renderAttendance();renderMotions();renderActions();buildMinutes()}}catch{attendees=[{id:id(),name:'',call:''}];renderAttendance();renderMotions();renderActions();buildMinutes()}
+  renderHistory();
+}
+
 function startApp(){
   nav();
   solar().catch?.(()=>{});
@@ -294,6 +423,7 @@ function startApp(){
   publicEvents().catch(console.error);
   publicDocs().catch(console.error);
   setup();
+  secretaryHelper();
   admin().catch(err=>{
     console.error('TBOP admin startup failed',err);
     const lm=document.querySelector('#login-message');

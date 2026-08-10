@@ -1,7 +1,112 @@
 <!doctype html><html lang="en"><head><title>Officer Login | The Blowtorch of Parma</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0a0f14"><link rel="stylesheet" href="styles.css"><script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script defer src="supabase-config.js"></script><script defer src="app.js"></script></head><body><header class="site-header"><div class="wrap nav"><a class="brand" href="index.html"><span class="brand-mark">⌁</span><span>THE BLOWTORCH OF PARMA<small>AMATEUR RADIO CLUB</small></span></a><button class="menu-toggle" aria-label="Open menu" aria-expanded="false">☰</button><nav class="menu"><a href="index.html">Home</a><a href="calendar.html">Calendar</a><a class="solar-nav-link" href="solar.html">☀ Solar</a><a href="membership.html">Membership</a><a href="documents.html">Documents</a><a href="news.html">News</a><a class="officer-link" href="admin.html">Officer Login</a></nav></div></header><main><section class="admin-shell"><div class="admin-top"><a class="admin-brand" href="index.html">← Public Site</a><span>TBOP Officer Desk</span></div><div class="admin-wrap"><div id="config-warning" class="setup-needed hidden"><strong>Supabase setup is not complete.</strong><p>Configure this site before signing in.</p><a class="btn primary" href="setup.html">Open Setup</a></div><section id="login-panel" class="login-card"><div class="eyebrow">Authorized Officers Only</div><h1>Officer Login</h1><p class="muted">Use the email and password assigned to your Supabase administrator account.</p><form id="login-form" class="admin-form"><label>Email<input id="login-email" type="email" autocomplete="username" required></label><label>Password<input id="login-password" type="password" autocomplete="current-password" required></label><button class="btn primary" type="submit">Sign In</button></form><div id="login-message" class="admin-message"></div></section>
-<section id="dashboard" class="hidden"><div class="dashboard-head"><div><div class="eyebrow">Secretary / Officer Dashboard</div><h1>Website Desk</h1><p id="admin-identity" class="muted"></p></div><button id="logout-btn" class="btn">Sign Out</button></div><nav class="admin-tabs"><button class="admin-tab active" data-tab="documents">📄 Documents</button><button class="admin-tab" data-tab="news">📰 News</button><button class="admin-tab" data-tab="events">📅 Calendar</button></nav>
+<section id="dashboard" class="hidden"><div class="dashboard-head"><div><div class="eyebrow">Secretary / Officer Dashboard</div><h1>Website Desk</h1><p id="admin-identity" class="muted"></p></div><button id="logout-btn" class="btn">Sign Out</button></div><nav class="admin-tabs"><button class="admin-tab active" data-tab="documents">📄 Documents</button><button class="admin-tab" data-tab="news">📰 News</button><button class="admin-tab" data-tab="events">📅 Calendar</button><button class="admin-tab" data-tab="secretary">📝 Secretary Helper</button></nav>
 <div id="admin-message" class="admin-message"></div>
 <div class="admin-panel active" data-panel="documents"><div class="panel-grid"><article class="admin-card upload-card"><div class="upload-heading"><div><div class="eyebrow">Quick Publish</div><h2>Upload a Document</h2></div><span class="upload-icon">⬆</span></div><p class="muted">Choose a PDF, pick a category, and publish. The title can be filled automatically from the filename.</p><form id="document-form" class="admin-form"><label>Title <small class="field-hint">optional — leave blank to use the filename</small><input id="doc-title" placeholder="Example: August 2026 Meeting Minutes"></label><label>Category<select id="doc-category"><option>Governance</option><option>Meeting Minutes</option><option>Membership</option><option>Newsletters</option><option>Forms</option><option>Financial Reports</option><option>Other</option></select></label><label>Description<textarea id="doc-description" rows="3"></textarea></label><div class="file-drop" id="doc-drop"><span class="file-drop-icon">📄</span><strong>Select or Drop PDF</strong><span id="doc-file-name">Click anywhere in this box or drag a PDF here</span><input id="doc-file" class="native-file-overlay" type="file" accept="application/pdf,.pdf" aria-label="Choose PDF file"></div><button id="doc-submit" class="btn primary full-mobile" type="submit">Upload & Publish</button><div id="doc-upload-status" class="upload-status" aria-live="polite"></div></form></article><article class="admin-card"><h2>Published Documents</h2><div id="admin-documents" class="admin-list"></div></article></div></div>
 <div class="admin-panel" data-panel="news"><div class="panel-grid"><article class="admin-card"><h2>Publish News</h2><form id="news-form" class="admin-form"><input id="news-id" type="hidden"><label>Headline<input id="news-title" required></label><label>Article<textarea id="news-body" rows="7" required></textarea></label><label class="check"><input id="news-published" type="checkbox" checked> Published</label><button class="btn primary" type="submit">Save Article</button></form></article><article class="admin-card"><h2>News Articles</h2><div id="admin-news" class="admin-list"></div></article></div></div>
 <div class="admin-panel" data-panel="events"><div class="panel-grid"><article class="admin-card"><h2>Add Calendar Event</h2><form id="event-form" class="admin-form"><input id="event-id" type="hidden"><label>Event Name<input id="event-title" required></label><label>Date<input id="event-date" type="date" required></label><label>Time<input id="event-time" type="time"></label><label>Location<input id="event-location"></label><label>Details<textarea id="event-description" rows="4"></textarea></label><button class="btn primary" type="submit">Save Event</button></form></article><article class="admin-card"><h2>Upcoming Events</h2><div id="admin-events" class="admin-list"></div></article></div></div>
+<div class="admin-panel" data-panel="secretary">
+  <div class="secretary-helper">
+    <div class="secretary-toolbar">
+      <div>
+        <div class="eyebrow">Local-First Officer Tool</div>
+        <h2>Secretary Helper</h2>
+        <p class="muted">Take rough notes during a meeting and turn them into clean minutes. Drafts are saved in this browser only.</p>
+      </div>
+      <div class="row-actions">
+        <button id="sec-new" class="btn small">New Meeting</button>
+        <button id="sec-save" class="btn primary small">Save Meeting</button>
+      </div>
+    </div>
+
+    <div class="sec-subtabs">
+      <button class="sec-subtab active" data-sec-tab="setup">Meeting</button>
+      <button class="sec-subtab" data-sec-tab="notes">Notes</button>
+      <button class="sec-subtab" data-sec-tab="motions">Motions</button>
+      <button class="sec-subtab" data-sec-tab="actions">Actions</button>
+      <button class="sec-subtab" data-sec-tab="minutes">Minutes</button>
+      <button class="sec-subtab" data-sec-tab="history">History</button>
+    </div>
+
+    <section class="sec-panel active" data-sec-panel="setup">
+      <div class="panel-grid">
+        <article class="admin-card">
+          <h2>Meeting Information</h2>
+          <div class="admin-form sec-grid">
+            <label>Meeting title<input id="sec-title" value="Regular Club Meeting"></label>
+            <label>Date<input id="sec-date" type="date"></label>
+            <label>Start time<input id="sec-start" type="time"></label>
+            <label>End time<input id="sec-end" type="time"></label>
+            <label class="sec-full">Location<input id="sec-location"></label>
+            <label>Presiding officer<input id="sec-presiding" placeholder="Name / callsign"></label>
+            <label>Secretary<input id="sec-secretary" placeholder="Name / callsign"></label>
+            <label>Quorum
+              <select id="sec-quorum"><option value="">Not recorded</option><option>Present</option><option>Not present</option></select>
+            </label>
+            <label>Meeting type
+              <select id="sec-type"><option>Regular</option><option>Special</option><option>Board</option><option>Annual</option></select>
+            </label>
+          </div>
+        </article>
+        <article class="admin-card">
+          <div class="secretary-card-head"><h2>Attendance</h2><button id="sec-add-attendee" class="btn small">+ Add</button></div>
+          <div id="sec-attendance" class="sec-stack"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec-panel" data-sec-panel="notes">
+      <article class="admin-card">
+        <div class="notice">Type rough notes however you like. The Minutes tab formats them into standard meeting sections.</div>
+        <div class="admin-form sec-notes-grid">
+          <label>Call to Order<textarea id="sec-call" rows="4"></textarea></label>
+          <label>Previous Minutes<textarea id="sec-prev" rows="4"></textarea></label>
+          <label>Treasurer's Report<textarea id="sec-treasurer" rows="4"></textarea></label>
+          <label>Officer / Committee Reports<textarea id="sec-reports" rows="4"></textarea></label>
+          <label>Old Business<textarea id="sec-old" rows="5"></textarea></label>
+          <label>New Business<textarea id="sec-newbusiness" rows="5"></textarea></label>
+          <label>Announcements<textarea id="sec-announcements" rows="4"></textarea></label>
+          <label>Adjournment<textarea id="sec-adjournment" rows="4"></textarea></label>
+        </div>
+      </article>
+    </section>
+
+    <section class="sec-panel" data-sec-panel="motions">
+      <article class="admin-card">
+        <div class="secretary-card-head"><div><h2>Motions</h2><p class="muted">Record the exact motion, who made/seconded it, and the result.</p></div><button id="sec-add-motion" class="btn small">+ Motion</button></div>
+        <div id="sec-motions" class="sec-stack"></div>
+      </article>
+    </section>
+
+    <section class="sec-panel" data-sec-panel="actions">
+      <article class="admin-card">
+        <div class="secretary-card-head"><div><h2>Action Items</h2><p class="muted">Track follow-up work from the meeting.</p></div><button id="sec-add-action" class="btn small">+ Action</button></div>
+        <div id="sec-actions" class="sec-stack"></div>
+      </article>
+    </section>
+
+    <section class="sec-panel" data-sec-panel="minutes">
+      <article class="admin-card">
+        <div class="secretary-card-head">
+          <div><h2>Formatted Minutes</h2><p class="muted">Generated automatically from the information you entered.</p></div>
+          <div class="row-actions">
+            <button id="sec-copy" class="btn small">Copy</button>
+            <button id="sec-download" class="btn small">Download TXT</button>
+            <button id="sec-print" class="btn primary small">Print / Save PDF</button>
+          </div>
+        </div>
+        <article id="sec-preview" class="sec-minutes-paper"></article>
+      </article>
+    </section>
+
+    <section class="sec-panel" data-sec-panel="history">
+      <article class="admin-card">
+        <div class="secretary-card-head"><div><h2>Saved Meetings</h2><p class="muted">Stored only in this browser/device.</p></div><button id="sec-clear-history" class="btn danger small">Clear History</button></div>
+        <div id="sec-history" class="sec-stack"></div>
+      </article>
+    </section>
+
+    <div id="sec-status" class="admin-message"></div>
+  </div>
+</div>
+
 </section></div></section></main><footer class="footer"><div class="wrap footer-grid"><div><strong>The Blowtorch of Parma</strong><br><span>Amateur Radio Club · Northeast Ohio</span></div><a href="admin.html">Officer Login</a></div></footer></body></html>
