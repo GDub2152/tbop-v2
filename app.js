@@ -80,15 +80,58 @@ async function solar(){
 function vhfTabs(){}
 async function publicNews(){const targets=[$('#news-list'),$('#news-page-list')].filter(Boolean);if(!targets.length)return;const c=client();if(!c){targets.forEach(t=>t.innerHTML='<div class="notice">Club news will appear here after the site is connected to Supabase.</div>');return}const {data,error}=await c.from('news').select('*').eq('published',true).order('published_at',{ascending:false}).limit($('#news-page-list')?50:3);const html=error||!data?.length?'<div class="notice">No club news has been published yet.</div>':data.map(n=>`<article class="news-row"><div class="row-meta">${new Date(n.published_at||n.created_at).toLocaleDateString()}</div><h3>${esc(n.title)}</h3><p>${esc(n.body).replace(/\n/g,'<br>')}</p></article>`).join('');targets.forEach(t=>t.innerHTML=html)}
 async function publicEvents(){
-  const t=$('#event-list'); const nextTitle=$('#next-event-title'); const c=client();
-  if(!t&&!nextTitle)return;
-  if(!c){if(t)t.innerHTML='<div class="notice">Events will appear here after the site is connected to Supabase.</div>';return}
-  const today=new Date().toISOString().slice(0,10);
-  const {data,error}=await c.from('events').select('*').gte('event_date',today).order('event_date',{ascending:true}).order('starts_at',{ascending:true,nullsFirst:false});
+  const t=$('#event-list'), nextTitle=$('#next-event-title'), grid=$('#calendar-grid'), title=$('#calendar-title'), detail=$('#calendar-day-detail');
+  const c=client();
+  if(!t&&!nextTitle&&!grid)return;
+  if(!c){if(t)t.innerHTML='<div class="notice">Events will appear here after the site is connected to Supabase.</div>';if(grid)grid.innerHTML='<div class="notice">Calendar unavailable until Supabase is connected.</div>';return}
+
   const timeText=e=>e.starts_at?new Date(e.starts_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';
-  if(t)t.innerHTML=error||!data?.length?'<div class="notice">No upcoming events have been posted.</div>':data.map(e=>`<article class="event-row"><div class="row-meta">${fmtDate(e.event_date)}${timeText(e)?' · '+esc(timeText(e)):''}</div><h3>${esc(e.title)}</h3>${e.location?`<strong>${esc(e.location)}</strong>`:''}${e.description?`<p>${esc(e.description).replace(/\n/g,'<br>')}</p>`:''}</article>`).join('');
-  if(data?.[0]){nextTitle?.replaceChildren(document.createTextNode(data[0].title));$('#next-event-date')?.replaceChildren(document.createTextNode(fmtDate(data[0].event_date)+(timeText(data[0])?' · '+timeText(data[0]):'')+(data[0].location?' · '+data[0].location:'')))}
+  const todayKey=new Date().toLocaleDateString('en-CA');
+  const {data,error}=await c.from('events').select('*').order('event_date',{ascending:true}).order('starts_at',{ascending:true,nullsFirst:false});
+  const events=data||[];
+  const upcoming=events.filter(e=>e.event_date>=todayKey);
+  if(t)t.innerHTML=error||!upcoming.length?'<div class="notice">No upcoming events have been posted.</div>':upcoming.map(e=>`<article class="event-row"><div class="row-meta">${fmtDate(e.event_date)}${timeText(e)?' · '+esc(timeText(e)):''}</div><h3>${esc(e.title)}</h3>${e.location?`<strong>${esc(e.location)}</strong>`:''}${e.description?`<p>${esc(e.description).replace(/\n/g,'<br>')}</p>`:''}</article>`).join('');
+  if(upcoming[0]){nextTitle?.replaceChildren(document.createTextNode(upcoming[0].title));$('#next-event-date')?.replaceChildren(document.createTextNode(fmtDate(upcoming[0].event_date)+(timeText(upcoming[0])?' · '+timeText(upcoming[0]):'')+(upcoming[0].location?' · '+upcoming[0].location:'')))}
+  if(!grid)return;
+
+  let weather=new Map();
+  try{
+    const url='https://api.open-meteo.com/v1/forecast?latitude=41.4048&longitude=-81.7229&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=16';
+    const r=await fetch(url,{cache:'no-store'}); if(!r.ok)throw Error('Weather service unavailable'); const w=await r.json();
+    (w.daily?.time||[]).forEach((d,i)=>weather.set(d,{code:w.daily.weather_code?.[i],hi:w.daily.temperature_2m_max?.[i],lo:w.daily.temperature_2m_min?.[i],rain:w.daily.precipitation_probability_max?.[i]}));
+  }catch(e){console.warn('Calendar weather unavailable',e)}
+
+  const weatherIcon=code=>{code=Number(code);if(code===0)return'☀️';if([1,2].includes(code))return'🌤️';if(code===3)return'☁️';if([45,48].includes(code))return'🌫️';if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code))return'🌧️';if([71,73,75,77,85,86].includes(code))return'🌨️';if([95,96,99].includes(code))return'⛈️';return'🌡️'};
+  const weatherName=code=>{code=Number(code);if(code===0)return'Clear';if([1,2].includes(code))return'Partly cloudy';if(code===3)return'Cloudy';if([45,48].includes(code))return'Fog';if([51,53,55,56,57].includes(code))return'Drizzle';if([61,63,65,66,67,80,81,82].includes(code))return'Rain';if([71,73,75,77,85,86].includes(code))return'Snow';if([95,96,99].includes(code))return'Thunderstorms';return'Forecast'};
+  const eventClass=e=>{const x=(e.title+' '+(e.description||'')).toLowerCase();if(x.includes('skywarn'))return'skywarn';if(x.includes('contest'))return'contest';if(x.includes('hamfest'))return'hamfest';return'club'};
+  const byDate=new Map(); events.forEach(e=>{if(!byDate.has(e.event_date))byDate.set(e.event_date,[]);byDate.get(e.event_date).push(e)});
+  let view=new Date(); view.setDate(1);
+
+  function showDay(key){
+    const d=new Date(key+'T12:00:00'), evs=byDate.get(key)||[], w=weather.get(key);
+    detail.classList.remove('hidden');
+    detail.innerHTML=`<div class="day-detail-head"><div><div class="eyebrow">${d.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${d.toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'})}</h2></div>${w?`<div class="day-detail-weather"><span>${weatherIcon(w.code)}</span><strong>${Math.round(w.hi)}° / ${Math.round(w.lo)}°</strong><small>${weatherName(w.code)} · ${Math.round(w.rain||0)}% rain</small></div>`:'<div class="muted">Weather appears when this date enters the forecast window.</div>'}</div><div class="day-detail-events">${evs.length?evs.map(e=>`<article class="event-row"><div class="row-meta">${timeText(e)||'All day'}</div><h3>${esc(e.title)}</h3>${e.location?`<strong>${esc(e.location)}</strong>`:''}${e.description?`<p>${esc(e.description).replace(/\n/g,'<br>')}</p>`:''}</article>`).join(''):'<div class="notice">No club events scheduled for this day.</div>'}</div>`;
+    detail.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+
+  function render(){
+    title.textContent=view.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+    const y=view.getFullYear(),m=view.getMonth(),first=new Date(y,m,1),days=new Date(y,m+1,0).getDate(),lead=first.getDay();
+    let html='';
+    for(let i=0;i<lead;i++)html+='<div class="calendar-day outside" aria-hidden="true"></div>';
+    for(let day=1;day<=days;day++){
+      const d=new Date(y,m,day,12), key=`${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`, evs=byDate.get(key)||[], w=weather.get(key), isToday=key===todayKey;
+      html+=`<button class="calendar-day${isToday?' today':''}${evs.length?' has-event':''}" type="button" data-cal-day="${key}"><div class="calendar-date-row"><span class="calendar-date">${day}</span>${isToday?'<span class="today-chip">Today</span>':''}</div>${w?`<div class="calendar-weather"><span class="weather-icon">${weatherIcon(w.code)}</span><strong>${Math.round(w.hi)}°/${Math.round(w.lo)}°</strong><small>${Math.round(w.rain||0)}% rain</small></div>`:''}<div class="calendar-events">${evs.slice(0,2).map(e=>`<span class="calendar-event ${eventClass(e)}">${esc(e.title)}</span>`).join('')}${evs.length>2?`<small>+${evs.length-2} more</small>`:''}</div></button>`;
+    }
+    grid.innerHTML=html;
+    $$('[data-cal-day]',grid).forEach(b=>b.onclick=()=>showDay(b.dataset.calDay));
+  }
+  $('#cal-prev')?.addEventListener('click',()=>{view.setMonth(view.getMonth()-1);render()});
+  $('#cal-next')?.addEventListener('click',()=>{view.setMonth(view.getMonth()+1);render()});
+  $('#cal-today')?.addEventListener('click',()=>{view=new Date();view.setDate(1);render();showDay(todayKey)});
+  render();
 }
+
 async function publicDocs(){const t=$('#documents-list');if(!t)return;const c=client();if(!c){t.innerHTML='<div class="notice">The online document library will appear here after Supabase setup. The membership application remains available on the Membership page.</div>';return}const {data,error}=await c.from('documents').select('*').eq('published',true).order('category').order('created_at',{ascending:false});if(error||!data?.length){t.innerHTML='<div class="notice">No public documents have been published yet.</div>';return}const groups={};data.forEach(d=>(groups[d.category||'Other']??=[]).push(d));t.innerHTML=Object.entries(groups).map(([cat,rows])=>`<section class="document-group"><div class="doc-category-head"><h2>${esc(cat)}</h2><span>${rows.length} document${rows.length===1?'':'s'}</span></div>${rows.map(d=>`<article class="doc-row"><div><h3>${esc(d.title)}</h3>${d.description?`<p>${esc(d.description)}</p>`:''}<small>${new Date(d.created_at).toLocaleDateString()}</small></div><a class="btn small" target="_blank" rel="noopener" href="${esc(d.file_url)}">Open PDF</a></article>`).join('')}</section>`).join('')}
 function setup(){const f=$('#setup-form');if(!f)return;const url=$('#setup-url'),key=$('#setup-key'),msg=$('#setup-message'),out=$('#config-output'),card=$('#config-output-card');url.value=localStorage.getItem('tbop_supabase_url')||'';key.value=localStorage.getItem('tbop_supabase_key')||'';const make=()=>`// TBOP v3 Supabase configuration\nwindow.TBOP_SUPABASE_URL = '${url.value.trim().replace(/'/g,"\\'")}';\nwindow.TBOP_SUPABASE_KEY = '${key.value.trim().replace(/'/g,"\\'")}';\n`;f.onsubmit=async e=>{e.preventDefault();try{const test=window.supabase.createClient(url.value.trim(),key.value.trim());const {error}=await test.from('news').select('id').limit(1);if(error&&!['PGRST116'].includes(error.code))throw error;msg.className='admin-message ok';msg.textContent='Connection successful. You can use this Supabase project for TBOP v3.';out.value=make();card.classList.remove('hidden')}catch(err){msg.className='admin-message error';msg.textContent='Connection failed: '+(err.message||err)}};$('#save-local').onclick=()=>{localStorage.setItem('tbop_supabase_url',url.value.trim());localStorage.setItem('tbop_supabase_key',key.value.trim());msg.className='admin-message ok';msg.textContent='Saved on this device for testing. Create the permanent config file for all devices.';out.value=make();card.classList.remove('hidden')};$('#copy-config').onclick=async()=>{await navigator.clipboard.writeText(out.value);msg.className='admin-message ok';msg.textContent='Configuration copied.'}}
 async function admin(){
