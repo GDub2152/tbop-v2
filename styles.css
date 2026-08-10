@@ -41,3 +41,9 @@
     justify-content: flex-start;
   }
 }
+
+/* Native, browser-driven document file picker overlay */
+.file-drop{position:relative;overflow:hidden}
+.native-file-overlay{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:5}
+.file-drop>*:not(.native-file-overlay){pointer-events:none}
+.file-drop.dragging{border-color:var(--orange)!important;background:#15140f!important}

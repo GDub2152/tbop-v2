@@ -119,22 +119,33 @@ async function admin(){
     $('#admin-documents').innerHTML=!data?.length?'<div class="notice">No documents yet.</div>':data.map(d=>`<div class="admin-list-row"><div><strong>${esc(d.title)}</strong><small>${esc(d.category)} · ${new Date(d.created_at).toLocaleDateString()}</small></div><div class="row-actions"><a class="btn small" href="${esc(d.file_url)}" target="_blank" rel="noopener">Open</a><button class="btn danger small" data-del-doc="${d.id}" data-path="${esc(d.storage_path)}">Delete</button></div></div>`).join('');
     $$('[data-del-doc]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this document?'))return;await c.storage.from('documents').remove([b.dataset.path]);const {error}=await c.from('documents').delete().eq('id',b.dataset.delDoc);if(error)message(error.message,'error');else{message('Document deleted.');loadDocs()}})
   }
-  const fileInput=$('#doc-file'),fileName=$('#doc-file-name'),drop=$('#doc-drop'),browse=$('#doc-browse');
+  const fileInput=$('#doc-file'),fileName=$('#doc-file-name'),drop=$('#doc-drop');
   let droppedFile=null;
   const isPdf=file=>!!file&&(file.type==='application/pdf'||file.name?.toLowerCase().endsWith('.pdf'));
-  const chooseFile=file=>{if(!file)return false;if(!isPdf(file)){message('Please choose a PDF file.','error');return false}droppedFile=file;fileName.textContent=file.name;if(!$('#doc-title').value.trim())$('#doc-title').value=file.name.replace(/\.pdf$/i,'').replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();return true};
-  const openPicker=()=>{fileInput.value='';fileInput.click()};
-  browse?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openPicker()});
-  drop?.addEventListener('click',e=>{if(e.target!==browse)openPicker()});
-  drop?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openPicker()}});
+  const chooseFile=file=>{
+    if(!file)return false;
+    if(!isPdf(file)){message('Please choose a PDF file.','error');return false}
+    droppedFile=file;
+    fileName.textContent=file.name;
+    if(!$('#doc-title').value.trim())$('#doc-title').value=file.name.replace(/\.pdf$/i,'').replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
+    return true;
+  };
   fileInput?.addEventListener('change',()=>chooseFile(fileInput.files?.[0]));
   if(drop){
-    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';drop.classList.add('dragging')}));
-    ['dragleave','dragend'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('dragging')}));
-    drop.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('dragging');const file=e.dataTransfer?.files?.[0];if(file)chooseFile(file)});
+    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{
+      e.preventDefault();e.stopPropagation();
+      if(e.dataTransfer)e.dataTransfer.dropEffect='copy';
+      drop.classList.add('dragging');
+    }));
+    ['dragleave','dragend'].forEach(ev=>drop.addEventListener(ev,e=>{
+      e.preventDefault();e.stopPropagation();drop.classList.remove('dragging');
+    }));
+    drop.addEventListener('drop',e=>{
+      e.preventDefault();e.stopPropagation();drop.classList.remove('dragging');
+      const file=e.dataTransfer?.files?.[0];
+      if(file)chooseFile(file);
+    });
   }
-  document.addEventListener('dragover',e=>e.preventDefault());
-  document.addEventListener('drop',e=>{if(!drop?.contains(e.target))e.preventDefault()});
   $('#document-form').onsubmit=async e=>{
     e.preventDefault();const file=droppedFile||fileInput.files?.[0];if(!file){message('Choose or drag a PDF into the upload box first.','error');return}
     const title=$('#doc-title').value.trim()||file.name.replace(/\.pdf$/i,'').replace(/[-_]+/g,' ').trim();
